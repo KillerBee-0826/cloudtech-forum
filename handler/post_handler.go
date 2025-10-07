@@ -4,6 +4,7 @@ import (
 	model "cloudtech-forum/model"
 	"cloudtech-forum/repository"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -72,4 +73,70 @@ func ShowHandler(w http.ResponseWriter, r *http.Request) {
 
 	// レスポンスのBodyに、検索した投稿データを設定
 	json.NewEncoder(w).Encode(post)
+}
+
+// Updateハンドラ関数
+func UpdateHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.Atoi(vars["id"])
+
+	// リクエストのBodyデータを格納するオブジェクトを定義
+	var post model.Post
+	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
+		http.Error(w, "リクエストの形式が不正です", http.StatusBadRequest)
+		return
+	}
+
+	// 更新処理の実行
+	update_count, err := repository.UpdatePost(id, post.Content, post.UserID)
+	if err != nil {
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+		http.Error(w, "更新処理に失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	// 更新件数が0件の場合、404エラーを返す
+	if update_count == 0 {
+		http.Error(w, "更新対象のリソースが見つかりません", http.StatusNotFound)
+		return
+	}
+
+	// レスポンスのBodyに更新件数をセット
+	response := map[string]interface{}{
+		"message":     "更新が成功しました",
+		"updateCount": int(update_count),
+	}
+
+	// レスポンスを返却
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// Deleteハンドラ関数
+func DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.Atoi(vars["id"])
+
+	// 削除処理の実行
+	delete_count, err := repository.DeletePost(id)
+	if err != nil {
+		http.Error(w, "削除処理に失敗しました", http.StatusInternalServerError)
+		return
+	}
+
+	// 削除件数が0件の場合、404エラーを返す
+	if delete_count == 0 {
+		http.Error(w, "削除対象のリソースが見つかりません", http.StatusNotFound)
+		return
+	}
+
+	// レスポンスのBodyに削除件数をセット
+	response := map[string]interface{}{
+		"message":      "削除が成功しました",
+		"deletedCount": int(delete_count),
+	}
+
+	// ステータスコード200を返す
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
