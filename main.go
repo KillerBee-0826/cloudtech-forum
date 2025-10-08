@@ -17,6 +17,23 @@ func init() {
 	godotenv.Load()
 }
 
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORSヘッダーを設定
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+
+		// Preflightリクエストの場合、200 OKを返す
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 
 	// 環境変数からデータを取得
@@ -42,9 +59,12 @@ func main() {
 	r.HandleFunc("/posts/{id:[0-9]+}", handler.UpdateHandler).Methods("PUT")
 	r.HandleFunc("/posts/{id:[0-9]+}", handler.DeleteHandler).Methods("DELETE")
 
+	// CORSミドルウェアを適用
+	corsRouter := enableCORS(r)
+
 	// APIサーバを起動
 	log.Println("APIサーバを起動しました。ポート: " + apiport)
-	if err := http.ListenAndServe(":"+apiport, r); err != nil {
+	if err := http.ListenAndServe(":"+apiport, corsRouter); err != nil {
 		log.Fatal(err)
 	}
 }
